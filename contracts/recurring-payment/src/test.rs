@@ -276,3 +276,68 @@ fn test_execute_payment_transfers_balance_via_allowance() {
     let payment = c.get_payment(&id).unwrap();
     assert_eq!(payment.total_payments, 1);
 }
+
+#[test]
+fn test_recurring_lifecycle_events() {
+    use soroban_sdk::{testutils::Events as _, vec, IntoVal};
+
+    let env = Env::default();
+    env.mock_all_auths();
+    let (c, _) = setup(&env);
+    let payer = Address::generate(&env);
+    let payee = Address::generate(&env);
+    let token = Address::generate(&env);
+
+    let id = c.create_recurring(&payer, &payee, &token, &1000i128, &86_400u64, &None);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                c.address.clone(),
+                (symbol_short!("recurring"), symbol_short!("created")).into_val(&env),
+                (id, payer.clone(), payee.clone(), 1000i128).into_val(&env),
+            )
+        ]
+    );
+
+    c.pause_payment(&payer, &id);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                c.address.clone(),
+                (symbol_short!("recurring"), symbol_short!("paused")).into_val(&env),
+                (id, payer.clone()).into_val(&env),
+            )
+        ]
+    );
+
+    c.resume_payment(&payer, &id);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                c.address.clone(),
+                (symbol_short!("recurring"), symbol_short!("resumed")).into_val(&env),
+                (id, payer.clone()).into_val(&env),
+            )
+        ]
+    );
+
+    c.cancel_payment(&payer, &id);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                c.address.clone(),
+                (symbol_short!("recurring"), symbol_short!("cancelled")).into_val(&env),
+                (id, payer.clone()).into_val(&env),
+            )
+        ]
+    );
+}
+
