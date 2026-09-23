@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mockQuery = vi.fn();
+const { mockQuery } = vi.hoisted(() => ({
+  mockQuery: vi.fn(),
+}));
 
 vi.mock('../config/database', () => ({
   default: { query: mockQuery },

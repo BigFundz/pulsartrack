@@ -108,7 +108,7 @@ impl RecurringPaymentContract {
         let recurring = RecurringPayment {
             payment_id,
             payer: payer.clone(),
-            recipient,
+            recipient: recipient.clone(),
             token,
             amount,
             interval_secs,
@@ -130,6 +130,11 @@ impl RecurringPaymentContract {
         env.storage()
             .instance()
             .set(&DataKey::PaymentCounter, &payment_id);
+
+        env.events().publish(
+            (symbol_short!("recurring"), symbol_short!("created")),
+            (payment_id, payer, recipient, amount),
+        );
 
         payment_id
     }
@@ -237,6 +242,11 @@ impl RecurringPaymentContract {
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
+
+        env.events().publish(
+            (symbol_short!("recurring"), symbol_short!("paused")),
+            (payment_id, payer),
+        );
     }
 
     pub fn resume_payment(env: Env, payer: Address, payment_id: u64) {
@@ -276,6 +286,11 @@ impl RecurringPaymentContract {
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
         );
+
+        env.events().publish(
+            (symbol_short!("recurring"), symbol_short!("resumed")),
+            (payment_id, payer),
+        );
     }
 
     pub fn cancel_payment(env: Env, payer: Address, payment_id: u64) {
@@ -301,6 +316,11 @@ impl RecurringPaymentContract {
             &_ttl_key,
             PERSISTENT_LIFETIME_THRESHOLD,
             PERSISTENT_BUMP_AMOUNT,
+        );
+
+        env.events().publish(
+            (symbol_short!("recurring"), symbol_short!("cancelled")),
+            (payment_id, payer),
         );
     }
 

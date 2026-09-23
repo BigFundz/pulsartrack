@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import http from 'http';
 import WebSocket from 'ws';
-import { setupWebSocketServer, MAX_PAYLOAD_SIZE, MAX_MESSAGES_PER_WINDOW } from './websocket-server';
+import { setupWebSocketServer, broadcastToChannel, broadcast, MAX_PAYLOAD_SIZE, MAX_MESSAGES_PER_WINDOW } from './websocket-server';
+import { createJwt } from '../lib/jwt';
 
 // Mock horizon stream ledgers
 vi.mock('./horizon', () => ({
@@ -64,56 +65,34 @@ describe('WebSocket Server Security & Rate Limiting', () => {
       ws.on('open', resolve);
     });
 
-    const closePromise = new Promise<number>((resolve) => {
-      ws.on('close', (code) => resolve(code));
+    const token = createJwt({ sub: 'GABC1234567890123456789012345678901234567890123456789012' });
+
+    // Authenticate client
+    ws.send(JSON.stringify({ type: 'auth', token }));
+
+    let rateLimitExceededReceived = false;
+
+    ws.on('message', (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === 'error' && msg.payload?.message === 'Rate limit exceeded') {
+          rateLimitExceededReceived = true;
+        }
+      } catch {}
     });
 
-    // Send messages up to and exceeding MAX_MESSAGES_PER_WINDOW
-    for (let i = 0; i <= MAX_MESSAGES_PER_WINDOW; i++) {
+    // Send messages exceeding MAX_MESSAGES_PER_WINDOW
+    for (let i = 0; i <= MAX_MESSAGES_PER_WINDOW + 5; i++) {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'ping' }));
       }
     }
 
-    const code = await closePromise;
-    expect(code).toBe(1008);
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { broadcastToChannel, broadcast } from './websocket-server';
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
-// Mock ws
-vi.mock('ws', () => {
-  // Typed as an intersection so the static `OPEN` member the real `ws`
-  // export carries can be assigned onto the mock without a TS2339 error.
-  const MockWebSocket = vi.fn().mockImplementation(() => ({
-    readyState: 1, // OPEN
-    send: vi.fn(),
-    close: vi.fn(),
-    on: vi.fn(),
-  })) as ReturnType<typeof vi.fn> & { OPEN: number };
-  MockWebSocket.OPEN = 1;
-  return { WebSocketServer: vi.fn(), WebSocket: MockWebSocket };
-});
-
-vi.mock('./horizon', () => ({
-  streamLedgers: vi.fn().mockReturnValue(vi.fn()),
-}));
-
-vi.mock('../lib/logger', () => ({
-  logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
-}));
-
-vi.mock('../lib/jwt', () => ({
-  decodeJwt: vi.fn(),
-  createJwt: vi.fn(),
-  TOKEN_EXPIRY: 3600,
-}));
-
-describe('websocket-server', () => {
-  // Note: setupWebSocketServer requires an HTTP server and full WS handshake.
-  // These tests cover the exported broadcast helpers which are the
-  // security-relevant public API surface.
-  // Full integration tests for JWT auth over WS are best done in an
-  // e2e suite with a real HTTP server.
+    expect(rateLimitExceededReceived).toBe(true);
+    ws.close();
+  });
 
   describe('broadcastToChannel', () => {
     it('does not throw when called with no clients', () => {
