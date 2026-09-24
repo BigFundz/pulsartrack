@@ -9,7 +9,6 @@
 import { z } from 'zod';
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
-const AUTH_TOKEN_KEY = 'pulsar_auth_token';
 
 export type EventType =
   | 'bid_placed'
@@ -69,25 +68,17 @@ export class PulsarWebSocket {
   private readonly heartbeatIntervalMs = 30000;
   private readonly heartbeatTimeoutMs = 10000;
   private authToken: string | null = null;
+  private authenticated = false;
 
   constructor(url: string) {
     this.url = url;
   }
 
+  // Token is held in memory only: persisting it to localStorage would make it
+  // readable by any injected script (XSS). After a page reload the app must
+  // call setAuthToken() again before connecting.
   setAuthToken(token: string): void {
     this.authToken = token;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(AUTH_TOKEN_KEY, token);
-    }
-  }
-
-  private loadAuthToken(): string | null {
-    if (this.authToken) return this.authToken;
-    if (typeof window !== 'undefined') {
-      this.authToken = localStorage.getItem(AUTH_TOKEN_KEY);
-      return this.authToken;
-    }
-    return null;
   }
 
   connect(): void {
@@ -98,6 +89,7 @@ export class PulsarWebSocket {
       this.ws.close();
       this.ws = null;
     }
+    this.authenticated = false;
 
     try {
       this.ws = new WebSocket(this.url);
@@ -107,9 +99,8 @@ export class PulsarWebSocket {
         this.reconnectDelay = 3000;
         this.startHeartbeat();
 
-        const token = this.loadAuthToken();
-        if (token) {
-          this.ws!.send(JSON.stringify({ type: 'auth', token }));
+        if (this.authToken) {
+          this.ws!.send(JSON.stringify({ type: 'auth', token: this.authToken }));
         }
       };
 
@@ -124,6 +115,7 @@ export class PulsarWebSocket {
           }
 
           if (parsed?.type === 'authenticated') {
+            this.authenticated = true;
             this.emit({ type: 'connected', data: parsed.payload || {}, timestamp: Date.now() });
             return;
           }
@@ -144,6 +136,7 @@ export class PulsarWebSocket {
       };
 
       this.ws.onclose = () => {
+        this.authenticated = false;
         this.stopHeartbeat();
         this.emit({ type: 'disconnected', data: {}, timestamp: Date.now() });
         this.scheduleReconnect();
@@ -207,6 +200,7 @@ export class PulsarWebSocket {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.authenticated = false;
     this.stopHeartbeat();
     if (this.ws) {
       // Detach onclose first: closing would otherwise fire the handler and
@@ -242,7 +236,7 @@ export class PulsarWebSocket {
   }
 
   get isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN;
+    return this.authenticated && this.ws?.readyState === WebSocket.OPEN;
   }
 }
 

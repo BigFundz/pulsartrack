@@ -132,7 +132,7 @@ describe('PulsarWebSocket', () => {
       expect(constructionSpy).toHaveBeenCalledWith('ws://test.example.com:4000');
     });
 
-    it('emits "connected" event and resets reconnect counters when WebSocket opens', () => {
+    it('emits "connected" event and resets reconnect counters when authenticated', () => {
       const client = new PulsarWebSocket('ws://test.example.com');
       const connectedHandler = vi.fn();
       client.on('connected', connectedHandler);
@@ -140,7 +140,12 @@ describe('PulsarWebSocket', () => {
       client.connect();
       expect(connectedHandler).not.toHaveBeenCalled();
 
+      // Socket open alone must NOT emit "connected" — only auth confirmation does
       triggerOpen();
+      expect(connectedHandler).not.toHaveBeenCalled();
+      expect(client.isConnected).toBe(false);
+
+      triggerMessage({ type: 'authenticated', payload: {} });
 
       expect(connectedHandler).toHaveBeenCalledTimes(1);
       const event = connectedHandler.mock.calls[0][0];
@@ -165,14 +170,18 @@ describe('PulsarWebSocket', () => {
       expect(constructionSpy).toHaveBeenCalledTimes(2);
     });
 
-    it('isConnected reflects readyState correctly', () => {
+    it('isConnected reflects authenticated state, not raw readyState', () => {
       const client = new PulsarWebSocket('ws://test.example.com');
       expect(client.isConnected).toBe(false);
 
       client.connect();
       expect(client.isConnected).toBe(false);
 
+      // Open but not yet authenticated
       triggerOpen();
+      expect(client.isConnected).toBe(false);
+
+      triggerMessage({ type: 'authenticated', payload: {} });
       expect(client.isConnected).toBe(true);
 
       triggerClose();
@@ -185,6 +194,7 @@ describe('PulsarWebSocket', () => {
       const client = new PulsarWebSocket('ws://test.example.com');
       client.connect();
       triggerOpen();
+      triggerMessage({ type: 'authenticated', payload: {} });
 
       const bidHandler = vi.fn();
       const allHandler = vi.fn();
@@ -242,6 +252,7 @@ describe('PulsarWebSocket', () => {
 
       client.connect();
       triggerOpen();
+      triggerMessage({ type: 'authenticated', payload: {} });
 
       triggerRawMessage('this is not json {{');
 
@@ -437,6 +448,7 @@ describe('PulsarWebSocket', () => {
       expect(constructionSpy).toHaveBeenCalledTimes(1);
 
       triggerOpen();
+      triggerMessage({ type: 'authenticated', payload: {} });
       const ws = getPulsarWebSocket();
       expect(ws.isConnected).toBe(true);
 
