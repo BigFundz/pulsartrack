@@ -10,7 +10,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-pulsartrack}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/prisma/schema.prisma:/docker-entrypoint-initdb.d/schema.prisma:ro
+      # Postgres only runs .sql/.sh files here; the app also applies this schema
+      # and any migrations on startup (backend/src/db/migrate.ts).
+      - ./backend/src/db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pulsartrack"]
       interval: 10s
