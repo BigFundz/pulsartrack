@@ -42,9 +42,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     }
 
     // Connection state is driven by the 'connected'/'disconnected'/'error'
-    // event handlers subscribed above. ws.connect() emits 'connected' on open,
-    // so we rely on those callbacks rather than reading ws.isConnected
-    // synchronously here.
+    // event handlers subscribed above. ws.connect() emits 'connected' only
+    // once the server confirms authentication, so we rely on those callbacks
+    // rather than reading ws.isConnected synchronously here.
     if (autoConnect) {
       ws.connect();
     }
