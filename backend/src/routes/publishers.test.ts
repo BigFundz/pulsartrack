@@ -9,7 +9,7 @@ describe('Publisher Routes', () => {
     const token = generateTestToken(mockAddress);
 
     beforeEach(() => {
-        vi.clearAllMocks();
+        vi.resetAllMocks();
     });
 
     describe('GET /api/publishers/leaderboard', () => {

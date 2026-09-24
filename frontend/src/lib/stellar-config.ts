@@ -208,6 +208,10 @@ export function validateRequiredEnv(): void {
   }
 }
 
-if (process.env.NODE_ENV === 'production') {
-  validateRequiredEnv();
-}
+// validateRequiredEnv() is intentionally NOT called at module-load time.
+// Calling it unconditionally here caused `next build` to fail during static
+// pre-rendering of pages like /_not-found (which run with NODE_ENV=production
+// but have no contract addresses available in CI or fresh contributor setups).
+// Call validateRequiredEnv() explicitly from your server-startup path or from
+// a server-side route handler that actually needs contract addresses, so the
+// check only fires for real requests — not during static generation.
