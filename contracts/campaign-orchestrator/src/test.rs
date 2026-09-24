@@ -251,7 +251,7 @@ fn test_record_view_insufficient_budget() {
     let id = c.create_campaign(&CampaignCreateArgs {
         advertiser: advertiser.clone(),
         campaign_type: 1u32,
-        budget: 1_000_000i128,
+        budget: 200i128,
         cost_per_view: 100i128,
         duration: 1000u32,
         target_views: 20_000u64,
@@ -259,11 +259,11 @@ fn test_record_view_insufficient_budget() {
         refundable: true,
     });
 
-    // Exhaust budget: cost_per_view=100, remaining=1_000_000 → 10000 views needed
-    for _ in 0..10_000 {
-        c.record_view(&id, &publisher);
-    }
-    // Next view should fail
+    // First view: 100 stroops spent, 100 remaining
+    c.record_view(&id, &publisher);
+    // Second view: 100 stroops spent, 0 remaining
+    c.record_view(&id, &publisher);
+    // Third view should fail with insufficient budget
     c.record_view(&id, &publisher);
 }
 

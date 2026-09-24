@@ -113,12 +113,39 @@ export const APP_DETAILS = {
  */
 export const STROOPS_PER_XLM = 10_000_000;
 
-export function stroopsToXlm(stroops: bigint | number): number {
-  return Number(stroops) / STROOPS_PER_XLM;
+export function stroopsToXlm(stroops: bigint | number): string {
+  const stroopsNum = typeof stroops === 'bigint' ? stroops : BigInt(Math.floor(Number(stroops)));
+  const xlmWhole = stroopsNum / BigInt(STROOPS_PER_XLM);
+  const stroopsFraction = stroopsNum % BigInt(STROOPS_PER_XLM);
+
+  if (stroopsFraction === 0n) {
+    return xlmWhole.toString();
+  }
+
+  const fractionStr = stroopsFraction.toString().padStart(7, '0').replace(/0+$/, '');
+  return `${xlmWhole}.${fractionStr}`;
 }
 
 export function xlmToStroops(xlm: number): bigint {
-  return BigInt(Math.floor(xlm * STROOPS_PER_XLM));
+  if (!Number.isFinite(xlm)) {
+    throw new Error(`Invalid XLM amount: ${xlm} is not a finite number`);
+  }
+
+  if (xlm < 0) {
+    throw new Error(`Invalid XLM amount: ${xlm} cannot be negative`);
+  }
+
+  const xlmStr = xlm.toString();
+  const [whole, fraction] = xlmStr.split('.');
+
+  if (fraction && fraction.length > 7) {
+    throw new Error(`Invalid XLM amount: ${xlm} has more than 7 decimal places`);
+  }
+
+  const fractionPadded = (fraction || '').padEnd(7, '0');
+  const stroopsStr = (whole || '0') + fractionPadded;
+
+  return BigInt(stroopsStr);
 }
 
 /**
