@@ -9,6 +9,7 @@ import redisClient from "./config/redis";
 import { validateSimulationAccount } from "./services/soroban-client";
 import { EnvValidationError, loadEnv } from "./config/env";
 import { logger } from "./lib/logger";
+import { runMigrations } from "./db/migrate";
 
 const PORT = parseInt(process.env.PORT || "4000", 10);
 
@@ -101,6 +102,12 @@ async function start() {
     logger.warn("[DB] Could not connect to PostgreSQL — running without DB");
   } else {
     logger.info("[DB] PostgreSQL connected");
+    try {
+      await runMigrations(pool);
+    } catch (err) {
+      logger.fatal({ err }, "[DB] Schema migration failed");
+      if (process.env.NODE_ENV === "production") process.exit(1);
+    }
   }
 
   try {

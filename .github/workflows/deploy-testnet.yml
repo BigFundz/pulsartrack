@@ -6,10 +6,11 @@ on:
     paths:
       - 'contracts/**'
       - 'scripts/deploy.sh'
+      - 'scripts/initialize.sh'
       - '.github/workflows/deploy-testnet.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   deploy:
@@ -24,11 +25,33 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      # A prebuilt release binary, instead of compiling the CLI from source.
       - name: Install Stellar CLI
-        run: cargo install --locked stellar-cli --features opt
+        uses: stellar/stellar-cli@v23.0.1
 
       - name: Build contract WASMs
         run: cargo build --release --target wasm32-unknown-unknown
+
+      # The deployer key is a stable repository secret, so every deployment is
+      # owned by a key the team holds and admin functions stay usable.
+      - name: Import deployer identity
+        env:
+          STELLAR_DEPLOYER_SECRET: ${{ secrets.STELLAR_DEPLOYER_SECRET }}
+        run: |
+          if [ -z "$STELLAR_DEPLOYER_SECRET" ]; then
+            echo "::error::Repository secret STELLAR_DEPLOYER_SECRET is not set"
+            exit 1
+          fi
+          echo "$STELLAR_DEPLOYER_SECRET" | stellar keys add pulsartrack-deployer --secret-key
 
       - name: Run deployment script
         run: ./scripts/deploy.sh
@@ -36,10 +59,18 @@ jobs:
           STELLAR_NETWORK: testnet
           STELLAR_IDENTITY: pulsartrack-deployer
 
-      - name: Commit deployment records
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add deployments/
-          git commit -m "chore: update deployment records [skip ci]" || echo "No changes to commit"
-          git push
+      # The deployer identity is the admin, so the contracts come up initialized
+      # with a known admin instead of being left unadministrable.
+      - name: Initialize contracts
+        run: ./scripts/initialize.sh --network testnet --identity pulsartrack-deployer
+        env:
+          STELLAR_NETWORK: testnet
+          STELLAR_IDENTITY: pulsartrack-deployer
+
+      # Deployment records are uploaded rather than pushed to main, which
+      # branch protection may reject.
+      - name: Upload deployment records
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-records
+          path: deployments/

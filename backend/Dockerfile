@@ -43,6 +43,10 @@ RUN npm prune --production
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
 
+# The schema and migrations are plain SQL that tsc does not copy into dist
+COPY --from=builder /app/src/db/schema.sql ./dist/db/schema.sql
+COPY --from=builder /app/src/db/migrations ./dist/db/migrations
+
 # Prisma is required by the generated client at runtime
 COPY --from=builder /app/prisma ./prisma
 

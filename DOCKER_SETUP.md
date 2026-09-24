@@ -139,6 +139,19 @@ Credentials: pulsartrack / pulsartrack_dev_password
 - Health check via pg_isready
 - Auto-restart on failure
 
+### Database schema
+
+The schema is defined once, in `backend/src/db/schema.sql`. A fresh database
+gets it two ways: the compose file mounts it into Postgres's init directory,
+and the backend applies it again on startup (it is written with
+`IF NOT EXISTS`, so re-running changes nothing).
+
+Changes to an existing database go in `backend/src/db/migrations/` as
+numbered `.sql` files. On startup the backend applies each one once, in
+filename order, and records it in the `schema_migrations` table. To check a
+local database, run `\dt` in `psql` and look for `campaigns`, `ledger_events`
+and `schema_migrations`.
+
 ### Redis Service
 
 ```yaml

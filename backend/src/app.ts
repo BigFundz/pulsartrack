@@ -7,8 +7,12 @@ import * as Sentry from '@sentry/node';
 import apiRoutes from './api/routes';
 import redisClient from './config/redis';
 import { errorHandler, rateLimit, configureRateLimiters } from './middleware/auth';
+import { getTrustedProxyHops } from './lib/client-ip';
 
 const app = express();
+// Honor X-Forwarded-For only from the configured number of trusted proxies
+// (TRUST_PROXY_HOPS); 0 means req.ip is always the socket address.
+app.set('trust proxy', getTrustedProxyHops());
 const RESPONSE_TIMEOUT_MS = Number.parseInt(
     process.env.EXPRESS_RESPONSE_TIMEOUT_MS || '30000',
     10,
