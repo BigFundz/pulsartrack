@@ -26,7 +26,10 @@ if (process.env.NODE_ENV !== 'test') {
     app.use(morgan('combined'));
 }
 
-app.use(express.json({ limit: '10mb' }));
+// Rate limiter must come before express.json so rejected clients don't
+// consume resources parsing bodies
+app.use(rateLimit());
+
 app.use((req, res, next) => {
     req.setTimeout(RESPONSE_TIMEOUT_MS);
     res.setTimeout(RESPONSE_TIMEOUT_MS, () => {
@@ -36,7 +39,8 @@ app.use((req, res, next) => {
     });
     next();
 });
-app.use(rateLimit());
+
+app.use(express.json({ limit: '10mb' }));
 
 // Safely serialize BigInt values as strings to avoid precision loss
 app.set('json replacer', (_key: string, value: unknown) =>
