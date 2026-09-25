@@ -292,8 +292,8 @@ impl GovernanceDaoContract {
         // attacker borrow tokens, vote on the inflated balance, and repay in the
         // same transaction; power acquired at or after the snapshot ledger now
         // resolves to the pre-existing checkpoint instead.
-        let voting_power = GovTokenClient::new(&env, &gov_token)
-            .get_past_votes(&voter, &proposal.snapshot_ledger);
+        let voting_power =
+            GovTokenClient::new(&env, &gov_token).get_past_votes(&voter, &proposal.snapshot_ledger);
         if power > voting_power {
             panic!("insufficient governance tokens");
         }
@@ -432,8 +432,6 @@ impl GovernanceDaoContract {
 
         proposal.status = if quorum_met && for_bps as u32 >= proposal.threshold_pct * 100 {
             ProposalStatus::Passed
-        } else if !quorum_met {
-            ProposalStatus::Rejected
         } else {
             ProposalStatus::Rejected
         };
