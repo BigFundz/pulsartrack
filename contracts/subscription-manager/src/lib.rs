@@ -568,6 +568,11 @@ impl SubscriptionManagerContract {
     fn _init_plans(env: &Env) {
         // (tier, name, monthly_stroops, annual_stroops, max_campaigns,
         //  max_impressions/month, max_publishers, analytics, api_access)
+        //
+        // The inline array type is intentionally verbose to keep all plan data
+        // co-located and readable at a glance. A named type alias would add
+        // indirection without improving clarity here.
+        #[allow(clippy::type_complexity)]
         let plans: [(
             SubscriptionTier,
             &str,
